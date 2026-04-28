@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveTheme } from "./themeLogic";
+import { normalizeThemePreference, resolveTheme } from "./themeLogic";
 
 describe("resolveTheme", () => {
   it("uses the explicit light preference", () => {
@@ -17,5 +17,19 @@ describe("resolveTheme", () => {
 
   it("falls back to dark when the system theme is unavailable", () => {
     expect(resolveTheme("system", null)).toBe("dark");
+  });
+});
+
+describe("normalizeThemePreference", () => {
+  it("normalizes valid stored theme preferences", () => {
+    expect(normalizeThemePreference("system")).toBe("system");
+    expect(normalizeThemePreference("light")).toBe("light");
+    expect(normalizeThemePreference("dark")).toBe("dark");
+  });
+
+  it("falls back to system for invalid stored theme preferences", () => {
+    expect(normalizeThemePreference(null)).toBe("system");
+    expect(normalizeThemePreference(undefined)).toBe("system");
+    expect(normalizeThemePreference("invalid")).toBe("system");
   });
 });

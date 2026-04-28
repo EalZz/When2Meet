@@ -11,3 +11,7 @@ export function resolveTheme(
 
   return systemTheme === "light" ? "light" : "dark";
 }
+
+export function normalizeThemePreference(value: unknown): ThemePreference {
+  return value === "light" || value === "dark" || value === "system" ? value : "system";
+}

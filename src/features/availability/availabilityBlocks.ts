@@ -16,7 +16,7 @@ export type AvailabilityBlock = {
 export function expandBlockToSlots(startTime: string, endTime: string): string[] {
   const slots = createThirtyMinuteSlots();
   const startIndex = slots.indexOf(startTime);
-  const endIndex = slots.indexOf(endTime);
+  const endIndex = endTime === "24:00" ? slots.length : slots.indexOf(endTime);
 
   if (startIndex < 0 || endIndex < 0 || endIndex <= startIndex) {
     return [];

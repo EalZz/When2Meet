@@ -10,6 +10,7 @@ type CalendarMonthProps = {
   markedDates?: string[];
   markerStatesByDate?: Record<string, DateMarkerState>;
   selectedDate?: string | null;
+  selectedDates?: string[];
   onSelectDate: (date: string) => void;
 };
 
@@ -20,9 +21,11 @@ export function CalendarMonth({
   markedDates = [],
   markerStatesByDate = {},
   selectedDate = null,
+  selectedDates = [],
   onSelectDate,
 }: CalendarMonthProps) {
   const theme = useTheme();
+
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const cells = buildMonthCells(year, monthIndex);
@@ -43,7 +46,9 @@ export function CalendarMonth({
         {cells.map((cell) => {
           const hasCandidate = Boolean(cell.date && marked.has(cell.date));
           const markerState = cell.date ? markerStatesByDate[cell.date] : undefined;
-          const isSelected = Boolean(cell.date && cell.date === selectedDate);
+          const isSelected = Boolean(
+            cell.date && (cell.date === selectedDate || selectedDates.includes(cell.date)),
+          );
 
           return (
             <Pressable

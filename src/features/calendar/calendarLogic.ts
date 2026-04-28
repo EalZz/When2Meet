@@ -46,3 +46,14 @@ export function buildMonthCells(year: number, monthIndex: number): MonthCell[] {
 
   return cells;
 }
+
+export function getMonthDateRange(month: Date) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+
+  return {
+    startDate: formatDateKey(year, monthIndex, 1),
+    endDate: formatDateKey(year, monthIndex, lastDay),
+  };
+}

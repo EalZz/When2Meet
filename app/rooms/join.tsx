@@ -28,7 +28,7 @@ export default function JoinRoomScreen() {
       setIsSubmitting(true);
       const roomId = await joinRoom(inviteCode, auth.user.id);
       router.replace({
-        pathname: "/room-calendar",
+        pathname: "/rooms/[roomId]/calendar",
         params: { roomId },
       });
     } catch (error) {

@@ -144,7 +144,6 @@ export default function DayTimelineScreen() {
             title: nextBlock.title,
             slots: slotRecords,
           },
-          [roomId],
         ),
         savePersonalAvailability({
           userId: currentUserId,
@@ -187,7 +186,6 @@ export default function DayTimelineScreen() {
             startTime: targetBlock.startTime,
             endTime: targetBlock.endTime,
           },
-          [roomId],
         ),
         deletePersonalAvailability({
           userId: currentUserId,

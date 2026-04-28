@@ -3,6 +3,11 @@ import { listRooms } from "../rooms/roomApi";
 import type { AvailabilityBlock } from "./availabilityBlocks";
 import type { AvailabilitySlot } from "./availabilityLogic";
 import type { SaveAvailabilityInput } from "./availabilityTypes";
+import {
+  bulkAvailabilityFullDayRange,
+  type BulkAvailabilityAction,
+  createBulkAvailabilitySlots,
+} from "./availabilityBulk";
 
 type ProfileJoin = {
   display_name?: string | null;
@@ -207,6 +212,78 @@ export async function deleteAvailabilityForAllRooms(
         throw error;
       }
     }),
+  );
+}
+
+export async function applyBulkAvailabilityForAllRooms(input: {
+  userId: string;
+  dates: string[];
+  action: BulkAvailabilityAction;
+}) {
+  const uniqueDates = Array.from(new Set(input.dates)).filter(Boolean);
+
+  if (uniqueDates.length === 0) {
+    return;
+  }
+
+  const slots = createBulkAvailabilitySlots(input.action);
+
+  if (input.action === "delete") {
+    await Promise.all(
+      uniqueDates.map((date) =>
+        Promise.all([
+          deleteAvailabilityForAllRooms({
+            userId: input.userId,
+            date,
+            startTime: bulkAvailabilityFullDayRange.startTime,
+            endTime: bulkAvailabilityFullDayRange.endTime,
+          }),
+          deletePersonalAvailability({
+            userId: input.userId,
+            date,
+            startTime: bulkAvailabilityFullDayRange.startTime,
+            endTime: bulkAvailabilityFullDayRange.endTime,
+          }),
+        ]),
+      ),
+    );
+    return;
+  }
+
+  const title = input.action === "available" ? "가능" : "불가능";
+
+  await Promise.all(
+    uniqueDates.map((date) =>
+      Promise.all([
+        deleteAvailabilityForAllRooms({
+          userId: input.userId,
+          date,
+          startTime: bulkAvailabilityFullDayRange.startTime,
+          endTime: bulkAvailabilityFullDayRange.endTime,
+        }),
+        deletePersonalAvailability({
+          userId: input.userId,
+          date,
+          startTime: bulkAvailabilityFullDayRange.startTime,
+          endTime: bulkAvailabilityFullDayRange.endTime,
+        }),
+      ]).then(() =>
+        Promise.all([
+          saveAvailabilityForAllRooms({
+            userId: input.userId,
+            date,
+            title,
+            slots,
+          }),
+          savePersonalAvailability({
+            userId: input.userId,
+            date,
+            title,
+            slots,
+          }),
+        ]),
+      ),
+    ),
   );
 }
 

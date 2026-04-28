@@ -28,7 +28,7 @@ export default function CreateRoomScreen() {
       setIsSubmitting(true);
       const room = await createRoom(name, auth.user.id);
       router.replace({
-        pathname: "/room-calendar",
+        pathname: "/rooms/[roomId]/calendar",
         params: { roomId: room.id },
       });
     } catch (error) {

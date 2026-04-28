@@ -31,15 +31,29 @@ export async function getProfile(userId: string): Promise<Profile> {
 }
 
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
+  const updates: Record<string, string | null> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.displayName !== undefined) {
+    updates.display_name = input.displayName.trim();
+  }
+
+  if (input.avatarUrl !== undefined) {
+    updates.avatar_url = input.avatarUrl?.trim() ? input.avatarUrl.trim() : null;
+  }
+
+  if (input.bio !== undefined) {
+    updates.bio = input.bio?.trim() ? input.bio.trim() : null;
+  }
+
+  if (input.themePreference !== undefined) {
+    updates.theme_preference = input.themePreference;
+  }
+
   const { data, error } = await supabase
     .from("profiles")
-    .update({
-      display_name: input.displayName.trim(),
-      avatar_url: input.avatarUrl ?? null,
-      bio: input.bio ?? null,
-      theme_preference: input.themePreference,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updates)
     .eq("id", userId)
     .select(profileColumns)
     .single();

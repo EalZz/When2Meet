@@ -11,7 +11,7 @@ export type Profile = {
 };
 
 export type UpdateProfileInput = {
-  displayName: string;
+  displayName?: string;
   avatarUrl?: string | null;
   bio?: string | null;
   themePreference?: ThemePreference;

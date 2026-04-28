@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -23,12 +23,15 @@ import {
   type AvailabilityBlock,
 } from "../../src/features/availability/availabilityBlocks";
 import {
+  applyBulkAvailabilityForAllRooms,
   deletePersonalAvailability,
   listPersonalAvailabilitySlots,
   listPersonalDayAvailabilityBlocks,
   savePersonalAvailability,
 } from "../../src/features/availability/availabilityApi";
+import type { BulkAvailabilityAction } from "../../src/features/availability/availabilityBulk";
 import { summarizeDateMarkersForUser } from "../../src/features/availability/availabilityLogic";
+import { getMonthDateRange } from "../../src/features/calendar/calendarLogic";
 import { useAuth } from "../../src/features/auth/AuthProvider";
 import { createRoom, joinRoom, listRooms } from "../../src/features/rooms/roomApi";
 import type { Room } from "../../src/features/rooms/roomTypes";
@@ -65,6 +68,11 @@ export default function RoomsScreen() {
   const [status, setStatus] = useState<"available" | "unavailable">("available");
   const [isSavingPersonal, setIsSavingPersonal] = useState(false);
   const [selectedDeleteBlockId, setSelectedDeleteBlockId] = useState<string | null>(null);
+ 
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<BulkAvailabilityAction>("available");
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
 
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [roomName, setRoomName] = useState("");
@@ -103,12 +111,7 @@ export default function RoomsScreen() {
       return;
     }
 
-    const startDate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
-      .toISOString()
-      .slice(0, 10);
-    const endDate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0)
-      .toISOString()
-      .slice(0, 10);
+    const { startDate, endDate } = getMonthDateRange(visibleMonth);
 
     listPersonalAvailabilitySlots(currentUserId, startDate, endDate)
       .then((monthSlots) =>
@@ -184,7 +187,19 @@ export default function RoomsScreen() {
     setIsPersonalModalVisible(false);
   }
 
+  function toggleBulkDate(dateKey: string) {
+    setSelectedDates((current) =>
+      current.includes(dateKey)
+        ? current.filter((date) => date !== dateKey)
+        : [...current, dateKey].sort(),
+    );
+  }
+
   function selectDate(dateKey: string) {
+    if (isBulkMode) {
+      toggleBulkDate(dateKey);
+      return;
+    }
     setSelectedDate(dateKey);
   }
 
@@ -201,14 +216,68 @@ export default function RoomsScreen() {
       return;
     }
 
-    const startDate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
-      .toISOString()
-      .slice(0, 10);
-    const endDate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0)
-      .toISOString()
-      .slice(0, 10);
+    const { startDate, endDate } = getMonthDateRange(visibleMonth);
     const monthSlots = await listPersonalAvailabilitySlots(currentUserId, startDate, endDate);
     setMarkerStatesByDate(summarizeDateMarkersForUser(monthSlots, currentUserId));
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUserId || !isSupabaseConfigured) {
+        return;
+      }
+
+      void reloadMarkerStates();
+      if (selectedDate) {
+        void reloadTimeline(selectedDate);
+      }
+    }, [currentUserId, selectedDate, visibleMonth]),
+  );
+
+  async function handleApplyBulkPersonal() {
+    if (!currentUserId) {
+      Alert.alert("로그인이 필요합니다.");
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      Alert.alert("Supabase 설정이 필요합니다.");
+      return;
+    }
+
+    if (selectedDates.length === 0) {
+      Alert.alert("날짜를 선택해 주세요.");
+      return;
+    }
+
+    try {
+      setIsBulkSubmitting(true);
+      const nextSelectedDate = selectedDate && selectedDates.includes(selectedDate)
+        ? selectedDate
+        : selectedDates[0];
+
+      await applyBulkAvailabilityForAllRooms({
+        userId: currentUserId,
+        dates: selectedDates,
+        action: bulkAction,
+      });
+
+      // 데이터 갱신 및 타임라인 표시 강제
+      await reloadMarkerStates();
+      setSelectedDate(nextSelectedDate);
+      await reloadTimeline(nextSelectedDate);
+
+      setIsBulkMode(false);
+      setSelectedDates([]);
+      setBulkAction("available");
+    } catch (error) {
+      Alert.alert(
+        "일괄 적용 실패",
+        error instanceof Error ? error.message : "다시 시도해 주세요.",
+      );
+    } finally {
+      setIsBulkSubmitting(false);
+    }
   }
 
   async function handleSavePersonalSchedule() {
@@ -320,7 +389,11 @@ export default function RoomsScreen() {
       setRoomName("");
       setIsCreateModalVisible(false);
       closeDrawer();
-      router.push({ pathname: "/room-calendar", params: { roomId: room.id } });
+      router.push({
+        pathname: "/rooms/[roomId]/calendar",
+        params: { roomId: room.id },
+      });
+
     } catch (error) {
       Alert.alert(
         "방 만들기에 실패했습니다",
@@ -348,7 +421,11 @@ export default function RoomsScreen() {
       setInviteCode("");
       setIsJoinModalVisible(false);
       closeDrawer();
-      router.push({ pathname: "/room-calendar", params: { roomId } });
+      router.push({
+        pathname: "/rooms/[roomId]/calendar",
+        params: { roomId },
+      });
+
     } catch (error) {
       Alert.alert(
         "방 참여에 실패했습니다",
@@ -403,7 +480,7 @@ export default function RoomsScreen() {
                   variant="secondary"
                   onPress={() =>
                     router.push({
-                      pathname: "/room-calendar",
+                      pathname: "/rooms/[roomId]/calendar",
                       params: { roomId: room.id },
                     })
                   }
@@ -435,12 +512,78 @@ export default function RoomsScreen() {
               />
             </View>
 
-            <CalendarMonth
-              month={visibleMonth}
-              markerStatesByDate={markerStatesByDate}
-              selectedDate={selectedDate}
-              onSelectDate={selectDate}
+          <View style={styles.bulkToolbar}>
+            <AppButton
+              label={isBulkMode ? "일괄 선택 취소" : "복수 날짜 일괄 설정"}
+              variant={isBulkMode ? "secondary" : "primary"}
+              disabled={isBulkSubmitting}
+              onPress={() => {
+                setIsBulkMode((current) => !current);
+                setSelectedDates([]);
+                setBulkAction("available");
+              }}
             />
+            {isBulkMode ? (
+              <AppText style={{ color: theme.colors.primary, fontWeight: "800" }}>
+                {selectedDates.length}개 선택됨
+              </AppText>
+            ) : null}
+          </View>
+
+          <CalendarMonth
+            month={visibleMonth}
+            markerStatesByDate={markerStatesByDate}
+            selectedDate={isBulkMode ? null : selectedDate}
+            selectedDates={selectedDates}
+            onSelectDate={selectDate}
+          />
+
+          {isBulkMode ? (
+            <View
+              style={[
+                styles.bulkPanel,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+              ]}
+            >
+              <View style={styles.optionRow}>
+                <AppButton
+                  label="가능"
+                  disabled={isBulkSubmitting}
+                  variant={bulkAction === "available" ? "primary" : "secondary"}
+                  onPress={() => setBulkAction("available")}
+                />
+                <AppButton
+                  label="불가능"
+                  disabled={isBulkSubmitting}
+                  variant={bulkAction === "unavailable" ? "primary" : "secondary"}
+                  onPress={() => setBulkAction("unavailable")}
+                />
+                <AppButton
+                  label="삭제"
+                  disabled={isBulkSubmitting}
+                  variant={bulkAction === "delete" ? "danger" : "secondary"}
+                  onPress={() => setBulkAction("delete")}
+                />
+              </View>
+              <View style={styles.bulkActions}>
+                <AppButton
+                  label="취소"
+                  variant="secondary"
+                  disabled={isBulkSubmitting}
+                  onPress={() => {
+                    setIsBulkMode(false);
+                    setSelectedDates([]);
+                    setBulkAction("available");
+                  }}
+                />
+                <AppButton
+                  label={isBulkSubmitting ? "적용 중..." : "확인"}
+                  disabled={isBulkSubmitting || selectedDates.length === 0}
+                  onPress={handleApplyBulkPersonal}
+                />
+              </View>
+            </View>
+          ) : null}
 
             {selectedDate ? (
               <View style={[styles.timelinePanel, { backgroundColor: theme.colors.surface }]}>
@@ -682,6 +825,25 @@ export default function RoomsScreen() {
 }
 
 const styles = StyleSheet.create({
+  bulkActions: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+  },
+  bulkPanel: {
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    marginTop: 12,
+    padding: 12,
+  },
+  bulkToolbar: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 8,
+    marginTop: 4,
+  },
   content: {
     gap: 16,
     paddingBottom: 32,
