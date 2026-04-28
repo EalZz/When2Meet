@@ -68,8 +68,10 @@ npm run web
 
 이 프로젝트는 Web 빌드 산출물이 `dist/`로 나오도록 배포하는 방식을 권장합니다.
 
-- Build Command: `npx expo export -p web`
+- Build Command: `npx expo export --platform web`
 - Output Directory: `dist`
 
 Supabase 키는 Vercel Environment Variables로 설정합니다.
 
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
