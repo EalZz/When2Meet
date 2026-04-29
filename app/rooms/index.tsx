@@ -48,6 +48,7 @@ export default function RoomsScreen() {
   const theme = useTheme();
   const auth = useAuth();
   const slots = createThirtyMinuteSlots();
+  const endTimeOptions = [...slots.slice(1), "24:00"];
   const drawerTranslateX = useRef(new Animated.Value(-drawerWidth)).current;
 
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -302,7 +303,7 @@ export default function RoomsScreen() {
     }
 
     const startIndex = slots.indexOf(startTime);
-    const endIndex = slots.indexOf(endTime);
+    const endIndex = endTime === "24:00" ? slots.length : slots.indexOf(endTime);
     if (startIndex < 0 || endIndex <= startIndex) {
       Alert.alert("끝나는 시간은 시작 시간보다 뒤여야 합니다.");
       return;
@@ -670,7 +671,7 @@ export default function RoomsScreen() {
               <AppText style={styles.fieldLabel}>끝 시간</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.optionRow}>
-                  {slots.slice(1).map((slot) => (
+                  {endTimeOptions.map((slot) => (
                     <AppButton
                       key={slot}
                       label={slot}
