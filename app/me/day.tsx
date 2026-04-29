@@ -27,6 +27,7 @@ export default function MyDayScreen() {
   const auth = useAuth();
   const date = params.date ?? todayKey();
   const slots = createThirtyMinuteSlots();
+  const endTimeOptions = [...slots.slice(1), "24:00"];
 
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState("10:00");
@@ -86,7 +87,7 @@ export default function MyDayScreen() {
     }
 
     const startIndex = slots.indexOf(startTime);
-    const endIndex = slots.indexOf(endTime);
+    const endIndex = endTime === "24:00" ? slots.length : slots.indexOf(endTime);
     if (startIndex < 0 || endIndex <= startIndex) {
       Alert.alert("끝나는 시간은 시작 시간보다 뒤여야 합니다.");
       return;
@@ -184,7 +185,7 @@ export default function MyDayScreen() {
             <AppText style={styles.fieldLabel}>끝 시간</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.optionRow}>
-                {slots.slice(1).map((slot) => (
+                {endTimeOptions.map((slot) => (
                   <AppButton
                     key={slot}
                     label={slot}
